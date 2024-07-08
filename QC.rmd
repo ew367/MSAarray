@@ -1,0 +1,248 @@
+---
+title: "DNA methylation Illumina Arrays Quality Control Report"
+author: "Emma Walker"
+output: 
+  html_document:
+  toc: true
+toc_float: true
+number_sections: true
+---
+  
+  
+  ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+QC report for MSA data
+
+Methylation QC workflow based on combination of https://www.bioconductor.org/packages/release/workflows/vignettes/methylationArrayAnalysis/inst/doc/methylationArrayAnalysis.html and code by Emma Walker and Nick Clifton
+
+Updated May 2024
+
+# Loading data
+
+An obejct of class ENmix::rgDataSet was made using the ENmix package and is loaded in alongside the sample sheet containing the pheno data for the mice and QCmetrics object created by the calcQCmetrics.r script
+
+
+```{r, make rgSet,  warning=FALSE, message=FALSE, echo = FALSE}
+
+#https://www.bioconductor.org/packages/devel/bioc/vignettes/ENmix/inst/doc/ENmix.pdf 
+
+
+library(ENmix)
+library(ggplot2)
+library(dplyr)
+library(minfi)
+library(gridExtra)
+library(corrplot)
+
+#args<-commandArgs(trailingOnly = TRUE)
+args<-"/lustre/projects/Research_Project-MRC190311/DNAm/MSA"
+
+setwd(args[1])
+
+source("config.r")
+
+
+
+sampleSheet <- read.csv(pheno, stringsAsFactors = F)
+
+load(file = file.path(QCDir, "rgSet.rdat"))
+load(file = file.path(QCDir, "QCmetrics.rdat"))
+
+load(file = file.path(QCDir, "detP.rdat"))
+load(file = file.path(QCDir, "bsCon.rdat"))
+load(file = file.path(QCDir, "detP.rdat"))
+load(file = file.path(QCDir, "mraw.rdat"))
+
+betas <- getB(mraw)
+
+
+# add column for neun and non neun celltypes
+#QCmetrics$NeuN <- ifelse(QCmetrics$Cell_Type == "NEUN", "NEUN", "OTHER")
+
+```
+
+# Intensity check
+
+The intensity check is often the biggest indicator of sample quality. The median methylated signal intensity and unmethylated signal intensity for each sample is calculated.
+
+`r sum(!QCmetrics$IntensityPass)` samples fail at an intensity threshold of `r intensThresh`
+
+
+# Intensity plots
+
+```{r plotintensities, echo=FALSE, message=F, dev=c('png', 'pdf')}
+
+
+ggplot(QCmetrics, aes(x = M.median, y = U.median, colour = Study)) +
+  geom_point() +
+  xlab("Median M intensity") +
+  ylab("Median U intensity") +
+  ggtitle("Signal Intensities by study")
+
+ggplot(QCmetrics, aes(x = M.median, y = U.median, colour = StartingConc.Conc.ng.uL)) +
+  geom_point() +
+  xlab("Median M intensity") +
+  ylab("Median U intensity") +
+  ggtitle("Signal Intensities by starting conc")
+
+ggplot(QCmetrics, aes(x = M.median, y = U.median, colour = uLDNA)) +
+  geom_point() +
+  xlab("Median M intensity") +
+  ylab("Median U intensity") +
+  ggtitle("Signal Intensities by uLDNA")
+
+ggplot(QCmetrics, aes(x = M.median, y = U.median, colour = FinalConc.Conc.ng.uL)) +
+  geom_point() +
+  xlab("Median M intensity") +
+  ylab("Median U intensity") +
+  ggtitle("Signal Intensities by uLDNA")
+
+ggplot(QCmetrics, aes(x = M.median, y = U.median, colour = Cell_Type))+
+  geom_point()+
+  xlab("Median M intensity")+
+  ylab("Median U intensity") + 
+  ggtitle("Signal Intensities by cell type")
+
+ggplot(QCmetrics, aes(x = M.median, y = U.median, colour = Chip_ID))+
+  geom_point()+
+  xlab("Median M intensity")+
+  ylab("Median U intensity") + 
+  ggtitle("Signal Intensities by sex")
+
+ggplot(QCmetrics, aes(x = M.median, y = U.median, colour = gsub("_.*", "", Basename))) +
+  geom_point() +
+  xlab("Median M intensity") +
+  ylab("Median U intensity") +
+  ggtitle("Signal Intensities by Chip")
+
+#ggplot(QCmetrics, aes(x = M.median, y = U.median, colour = N_Nuclei)) +
+ # geom_point() +
+  #xlab("Median M intensity") +
+  #ylab("Median U intensity") +
+  #ggtitle("Signal Intensities by N nuclei")
+
+
+#ggplot(QCmetrics, aes(x = M.median, y = U.median, colour = Batch)) +
+ # geom_point() +
+  #xlab("Median M intensity") +
+  #ylab("Median U intensity") +
+  #ggtitle("Signal Intensities by Batch")
+
+
+```
+
+# P filter 
+
+```{r, pfilt, echo=FALSE}
+
+failedProbes <- rownames(detP)[((rowSums(detP > pFiltProbeThresh)/ncol(detP)) * 100) > pFiltSampleThresh]
+
+```
+
+`r length(failedProbes)` probes fail at a pvalue threshold of `r pFiltProbeThresh` in more than `r pFiltSampleThresh`% of samples
+
+
+
+
+```{r heatmaps, echo=FALSE, message=F}
+
+#QCmetrics$IntensityRatio <- QCmetrics$M.median/QCmetrics$U.median # previously M - U
+#QCmetrics$SentrixPosition <- as.factor(QCmetrics$Chip_Position, levels = unique(QCmetrics$Chip_Postion))
+#QCmetrics$SentrixID <- factor(gsub("_.*", "", QCmetrics$Basename), levels=rev(unique(gsub("_.*", "", QCmetrics$Basename)))) #keeps the levels of the factor in current order rather than sorting numerically/alphabetically, also reverses this order as heatmaps plot bottom to top
+
+#extract the legend (using a function found online)
+#g_legend <- function(a.gplot){
+#  tmp <- ggplot_gtable(ggplot_build(a.gplot))
+ # leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+#  legend <- tmp$grobs[[leg]]
+#  legend
+#}
+
+
+#plateHeatmap <- ggplot(data=QCmetrics, aes(x=SentrixPosition, y=SentrixID)) +
+ # scale_fill_gradientn(colours=colorRamps::matlab.like(100), limits=c(min(QCmetrics$U.median, QCmetrics$M.median),max(QCmetrics$U.median, QCmetrics$M.median))) +
+ # labs(x="", y="") +
+#  theme_minimal() + 
+ # coord_equal() +
+  #theme(plot.title = element_text(hjust = 0.5), axis.text.x = element_text(angle = 90, hjust=1))
+
+#plot1 <- plateHeatmap +
+ # ggtitle("Median Methylated Intensity") +
+  #geom_tile(aes(fill=M.median), colour = "white") +
+  #theme(legend.position = "none")
+
+#plot2 <- plateHeatmap +
+  #ggtitle("Median Unmethylated Intensity") +
+  #geom_tile(aes(fill=U.median), colour = "white") +
+  #theme(legend.position = "none")
+
+#legendplot <- plateHeatmap + 
+ # geom_tile(aes(fill=U.median), colour = "white") +
+  #labs(fill="Intensity", alpha="Control") +
+  #scale_alpha_manual(values=c(1,1,1)) + 
+  #guides(alpha = guide_legend(override.aes = list(colour="black", pch=16)))
+
+#legend <- g_legend(legendplot)
+
+#chip_heatmaps <- grid.arrange(plot1, plot2, legend, ncol=3, widths=c(3/7, 3/7, 1/7))
+#ggsave("Methylation_intensity_CHIP.png", chip_heatmaps, device = "png")
+
+###################
+```
+
+# Bisulphite Conversion
+
+```{r bisulphiteconversion, echo=FALSE}
+
+ggplot(QCmetrics, aes(x = BsCon))+
+  geom_histogram()+
+  geom_vline(xintercept=bsConThresh, colour = "red", linetype="dashed")
+
+
+```
+
+`r sum(!QCmetrics$BsConPass)` samples fail at an intensity threshold of `r bsConThresh`
+
+
+
+# Density Plots
+
+```{r density plots, echo = FALSE, message = F}
+
+betas <- betas[, QCmetrics$Basename]
+
+densityPlot(betas, main = "All Betas", sampGroups = QCmetrics$Cell_Type)
+densityPlot(betas, main = "Passed Samples", sampGroups = QCmetrics$PassQC1)
+
+
+
+```
+
+
+
+# Correlations between QC metrics
+
+```{r, echo = FALSE, fig.width = 10, fig.height = 10}
+
+colsToKeep <- c(c(c("M.median","U.median","BsCon", "pFiltPass", "Cell_Type", "Batch", "DummyGroup",
+                    "Age","Sex", "Pathology"),
+                  colnames(QCmetrics)[grep("PC", colnames(QCmetrics))]))
+
+colsToKeep <- colsToKeep[colsToKeep %in% colnames(QCmetrics)]
+
+corDF <- QCmetrics[,colsToKeep]
+corDF$Cell_Type <- as.numeric(as.factor(corDF$Cell_Type))
+#corDF$Batch <- as.numeric(as.factor(corDF$Batch))
+#corDF$Sex <- as.numeric(as.factor(corDF$Sex))
+
+
+corrplot(cor(corDF, use = "p"))
+
+```
+
+
+

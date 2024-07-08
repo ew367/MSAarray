@@ -18,8 +18,6 @@
 # file in the project folder
 
 
-# MAY BE GOOD TO INCLUDE SESAME PROBE MASKING HERE TOO???? - in normalisation script
-
 #----------------------------------------------------------------------#
 # LOAD PACKAGES
 #----------------------------------------------------------------------#
@@ -57,8 +55,8 @@ if(file.exists(file = file.path(QCDir, "rgSet.rdat"))){
 
 
 # Exclude empty wells
-sampleSheet <- sampleSheet[!sampleSheet$Basename %in% empty,]
-rgSet <- rgSet[,sampleSheet$Basename]
+#sampleSheet <- sampleSheet[!sampleSheet$Basename %in% empty,]
+#rgSet <- rgSet[,sampleSheet$Basename]
 
 
 #----------------------------------------------------------------------#
@@ -147,8 +145,8 @@ if(file.exists(file = file.path(QCDir, "bsCon.rdat"))){
   ctrls <- metadata(rgSet)$ictrl
   
   # subset to just mouse specific probes
-  bs.type1 <- ctrls$Address[ctrls$Type == "BISULFITE CONVERSION I"][11:15]
-  bs.type2 <- ctrls$Address[ctrls$Type == "BISULFITE CONVERSION II"][4:6]
+  bs.type1 <- ctrls$Address[ctrls$Type == "BISULFITE CONVERSION I"]
+  bs.type2 <- ctrls$Address[ctrls$Type == "BISULFITE CONVERSION II"]
   
   bs.green.type1 <- assays(rgSet)$Green[bs.type1,]
   bs.green.type2 <- assays(rgSet)$Green[bs.type2,]
@@ -203,7 +201,7 @@ if(file.exists(file = file.path(QCDir, "sexPred.rdat"))){
 
 
 QCmetrics <- left_join(QCmetrics, sexPred)
-QCmetrics$sexPass <- ifelse(QCmetrics$PredSex == QCmetrics$Sex, TRUE, FALSE)
+#QCmetrics$sexPass <- ifelse(QCmetrics$PredSex == QCmetrics$Sex, TRUE, FALSE)
 
 
 #----------------------------------------------------------------------#
@@ -248,10 +246,16 @@ if(file.exists(file = file.path(QCDir, "PCAbetas.rdat"))){
 #remove failed probes from betas object
 #rgSetPass <- rgSetPass[!rgSet@elementMetadata$Name %in% failedProbes, ]
 
-QCmetrics$PassQC1 <- QCmetrics$IntensityPass & QCmetrics$PfiltPass & QCmetrics$BsConPass & QCmetrics$sexPass
+#QCmetrics$PassQC1 <- QCmetrics$IntensityPass & QCmetrics$PfiltPass & QCmetrics$BsConPass & QCmetrics$sexPass
+
+QCmetrics$PassQC1 <- QCmetrics$IntensityPass & QCmetrics$PfiltPass & QCmetrics$BsConPass
+
+#QCSum<-QCmetrics[, c("Basename", "Individual_ID", "Sample_ID", "Cell_Type",
+                     #"IntensityPass", "PfiltPass", "BsConPass", "sexPass",
+                     #"PassQC1")]
 
 QCSum<-QCmetrics[, c("Basename", "Individual_ID", "Sample_ID", "Cell_Type",
-                     "IntensityPass", "PfiltPass", "BsConPass", "sexPass",
+                     "IntensityPass", "PfiltPass", "BsConPass",
                      "PassQC1")]
 
 
