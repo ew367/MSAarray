@@ -113,7 +113,6 @@ ggplot(histDF, aes(x = BScon.med))+
   geom_vline(xintercept=80, colour = "red", linetype="dashed")+
   
   ggtitle("BSconversion exclusing U probes")
-S
 
 
 
