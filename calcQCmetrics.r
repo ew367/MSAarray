@@ -144,7 +144,7 @@ if(file.exists(file = file.path(QCDir, "bsCon.rdat"))){
   
   ctrls <- metadata(rgSet)$ictrl
   
-  # subset to just mouse specific probes
+  # get bscon probes
   bs.type1 <- ctrls$Address[ctrls$Type == "BISULFITE CONVERSION I"]
   bs.type2 <- ctrls$Address[ctrls$Type == "BISULFITE CONVERSION II"]
   
