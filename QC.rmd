@@ -207,6 +207,10 @@ ggplot(QCmetrics, aes(x = BsCon))+
 
 `r sum(!QCmetrics$BsConPass)` samples fail at an intensity threshold of `r bsConThresh`
 
+NOTE: This script currently uses only the type 1 bisulphite conversion probe that have 'C'
+in the name as those with 'U' have nuch lower intensities (see 'BSConversionEfficiancy.r"
+for more detail)
+
 
 
 # Density Plots
