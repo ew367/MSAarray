@@ -30,8 +30,6 @@ source("config.r")
 # load manifest
 man <- fread(manifest, skip=7, fill=TRUE, data.table=F)
 
-
-
 # get epicv1 probes
 msaV1 <- man[!(man$EPICv1_Locus_Match == ""), c("IlmnID", "Name", "EPICv1_Locus_Match")] #
 
@@ -118,19 +116,53 @@ for(cell in unique(sampleSheet$Cell_Type)[2:6]){
     geom_abline(colour="red", linetype="dashed")
   
   print(p)
+  
 }
 
 dev.off()
 
+# violin plot
 
-#----------------------------------------------------------------------#
-# MRC SCZ Blood
-#----------------------------------------------------------------------#
+# need a dataframe with cols for methylation value, cell type, array
 
-load("/lustre/projects/Research_Project-MRC190311/DNAm/mrcSCZBlood/UCL/2_normalised/normalised.rdata")
-# betas.ucl and pheno.ucl
+t <- data.frame(matrix(ncol = 3, nrow = 0))
+colnames(t)= c("Methylation", "array", "cell")
+
+for(cell in unique(sampleSheet$Cell_Type)[2:6]){
+  
+  # get mean methylation for the cell type from A risk data
+  cellBetas <- as.data.frame(rowMeans(betas[,pheno$Basename[pheno$Sample.Type == cell]]))
+  colnames(cellBetas) <- "Methylation"
+  #cellBetas$EPICv1_Locus_Match <- row.names(cellBetas)
+  cellBetas$array <- "epicV1"
+  cellBetas$cell <- cell
+  
+# get mean methylation for the cell type from MSA data
+  meanMSA <- as.data.frame(rowMeans(MSAbetas[,sampleSheet$Basename[sampleSheet$Cell_Type == cell]]))
+  colnames(meanMSA) <- "Methylation"
+  #meanMSA$IlmnID <- row.names(meanMSA)
+  meanMSA$array <- "MSA"
+  meanMSA$cell <- cell
+  
+  # join together
+  
+  all <- rbind(cellBetas, meanMSA)
+  t <- rbind(t, all)
+
+}
 
 
+
+p2 <- ggplot(t, aes(x=cell, y=Methylation, colour=array))+
+  geom_violin()+
+  #xlab("Array")+
+  ylab("Methylation")+
+  ggtitle("Whole Blood")
+
+print(p2)
+
+
+dev.off()
 
 
 
