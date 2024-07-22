@@ -48,7 +48,7 @@ Rscript -e "rmarkdown::render('MSAarray/qcScripts/QC.rmd', output_file='QC.html'
 mv MSAarray/qcScripts/QC.html 2_normalised/QC
 
 # run cluster cell types script
-#Rscript scripts/cellTypeChecks.r
+#Rscript MSAarray/qcScripts/cellTypeChecks.r
 
 # create cell types check QC report
 #Rscript -e "rmarkdown::render('scripts/cellTypeQC.rmd', output_file='cellTypeQC.html')" 
