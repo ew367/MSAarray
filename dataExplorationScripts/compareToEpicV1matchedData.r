@@ -41,6 +41,7 @@ msaV1 <- man[!(man$EPICv1_Locus_Match == ""), c("IlmnID", "Name", "EPICv1_Locus_
 # load MSA data and subset to epicv1 data 
 sampleSheet <- read.csv(pheno, stringsAsFactors = F)
 sampleSheet <- sampleSheet[sampleSheet$Study == "A-Risk",]
+#sampleSheet <- sampleSheet[sort(sampleSheet$Individual_ID),]
 
 load(file = file.path(QCDir, "mraw.rdat"))
 MSAbetas <- as.data.frame(getB(mraw))
@@ -58,8 +59,10 @@ load("/lustre/projects/Research_Project-MRC190311/DNAm/Arisk/2_processed/CellSor
 #betas and pheno
 
 # subset Arisk data to samples there is MSA samples/probe data for
-pheno <- pheno[pheno$PatientID %in% sampleSheet$Individual_ID,]
-pheno <- pheno[-which(pheno$Sample.Type == "Buccal" | pheno$Sample.Type == "Nasal"),] #remove Buccal and Nasal cellsm
+pheno2 <- pheno[pheno$PatientID %in% sampleSheet$Individual_ID,]
+ #<- pheno[match(pheno$PatientID, sampleSheet$Individual_ID),]
+#pheno <- pheno[sort(pheno$PatientID),]
+pheno2 <- pheno2[-which(pheno2$Sample.Type == "Buccal" | pheno2$Sample.Type == "Nasal"),] #remove Buccal and Nasal cellsm
 
 betas <- as.data.frame(betas[,pheno$Basename])
 betas <- betas[msaV1$EPICv1_Locus_Match,]

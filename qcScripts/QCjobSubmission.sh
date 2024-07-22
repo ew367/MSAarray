@@ -39,13 +39,13 @@ module load R/4.2.1-foss-2022a
 mkdir -p 2_normalised/QC
 
 # run the script to load idats to rgset and calculate QC metrics
-Rscript scripts/calcQCmetrics.r 
+Rscript MSAarray/qcScripts/calcQCmetrics.r 
 
 # create 1st stage QC report
-#Rscript -e "rmarkdown::render('scripts/QC.rmd', output_file='QC.html')" --args $1
+Rscript -e "rmarkdown::render('MSAarray/qcScripts/QC.rmd', output_file='QC.html')" --args $1
 
 # mv markdown report to correct location
-#mv scripts/QC.html 2_normalised/QC
+mv MSAarray/qcScripts/QC.html 2_normalised/QC
 
 # run cluster cell types script
 #Rscript scripts/cellTypeChecks.r
