@@ -1,15 +1,20 @@
 ##---------------------------------------------------------------------#
 ##
-## Title: correlate MSA test data to data on same samples but different
-##        arrays
+##    Title:        Correlate MSA test data to epic V1 data
 ##
-##                    
+##    This script:  creates density plots (one for each cell type)
+##                  correlation plots for each cell type
+##                  violin plot for each cell type
+##                  plots distribution of probe level cor statistics
+##                  
 ##
 ##---------------------------------------------------------------------#
 
 #----------------------------------------------------------------------#
 # NOTES
 #----------------------------------------------------------------------#
+
+#https://emea.illumina.com/products/by-type/microarray-kits/infinium-mouse-methylation.html
 
 # there are 278 probes which are in both MSA array and epic V1 but have
 # different cg IDs
@@ -33,29 +38,79 @@ man <- fread(manifest, skip=7, fill=TRUE, data.table=F)
 # get epicv1 probes
 msaV1 <- man[!(man$EPICv1_Locus_Match == ""), c("IlmnID", "Name", "EPICv1_Locus_Match")] #
 
-# load MSA data
+# load MSA data and subset to epicv1 data 
+sampleSheet <- read.csv(pheno, stringsAsFactors = F)
+sampleSheet <- sampleSheet[sampleSheet$Study == "A-Risk",]
+
 load(file = file.path(QCDir, "mraw.rdat"))
 MSAbetas <- as.data.frame(getB(mraw))
-sampleSheet <- read.csv(pheno, stringsAsFactors = F)
+MSAbetas <- MSAbetas[,sampleSheet$Basename]
+
+
+
+#----------------------------------------------------------------------#
+#  Import A-Risk (epic v1) data
+#----------------------------------------------------------------------#
 
 
 # load A risk data
 load("/lustre/projects/Research_Project-MRC190311/DNAm/Arisk/2_processed/CellSortedAsthmaERisk_Normalised.rdat")
 #betas and pheno
 
-
-
-#----------------------------------------------------------------------#
-# A-Risk (epic v1)
-#----------------------------------------------------------------------#
-
 # subset Arisk data to samples there is MSA samples/probe data for
 pheno <- pheno[pheno$PatientID %in% sampleSheet$Individual_ID,]
-pheno <- pheno[-which(pheno$Sample.Type == "Buccal" | pheno$Sample.Type == "Nasal"),] #remove Buccal and Nasal cells
+pheno <- pheno[-which(pheno$Sample.Type == "Buccal" | pheno$Sample.Type == "Nasal"),] #remove Buccal and Nasal cellsm
 
 betas <- as.data.frame(betas[,pheno$Basename])
 betas <- betas[msaV1$EPICv1_Locus_Match,]
 
+
+#----------------------------------------------------------------------#
+# Plot cor stat accross all samples
+#----------------------------------------------------------------------#
+
+# join betas from epicv1 and MSA
+plotBetas <- betas
+plotBetas$EPICv1_Locus_Match <- row.names(plotBetas)
+plotBetas <- left_join(plotBetas, msaV1)
+MSAbetas$IlmnID <- row.names(MSAbetas)
+plotBetas <- left_join(plotBetas, MSAbetas)
+plotBetas <- plotBetas[complete.cases(plotBetas),]
+
+
+#define function to calcualte correlation stat for each probe independently
+probeWiseCor <- function(x){
+  corStat <- cor.test(as.numeric(x[names(x) %in% pheno$Basename]), 
+                      as.numeric(x[names(x) %in% sampleSheet$Basename]))$estimate
+  return(corStat)
+}
+
+# and by cell
+
+
+
+
+
+# apply to each row (probe) of the matrix
+start.time <- Sys.time()
+t <- apply(plotBetas, 1, probeWiseCor)
+end.time <- Sys.time()
+round(end.time - start.time,2) #1.94 mins
+
+
+## plot distribution
+t <- as.data.frame(t)
+
+ggplot(t, aes(x=t))+
+  geom_density()
+
+
+
+#----------------------------------------------------------------------#
+# Plot cor stat accross all samples
+#----------------------------------------------------------------------#
+
+# plot for each cell type - B-cells  CD4 T-cells  CD8 T-cells Granulocytes    Monocytes 
 
 # create data frame for colouring distribution plot by array version
 distGroup <- bind_rows(
@@ -70,18 +125,6 @@ distGroup <- bind_rows(
     rename(Cell_Type = Sample.Type))
 
 
-# join betas from epicv1 and MSA
-plotBetas <- betas
-plotBetas$EPICv1_Locus_Match <- row.names(plotBetas)
-plotBetas <- left_join(plotBetas, msaV1)
-MSAbetas$IlmnID <- row.names(MSAbetas)
-plotBetas <- left_join(plotBetas, MSAbetas)
-plotBetas <- plotBetas[complete.cases(plotBetas),]
-
-
-
-# plot for each cell type - B-cells  CD4 T-cells  CD8 T-cells Granulocytes    Monocytes 
-
 pdf("plots/EpicV1vsMSAarrayByCellType.pdf")
 for(cell in unique(sampleSheet$Cell_Type)[2:6]){
 
@@ -93,6 +136,11 @@ for(cell in unique(sampleSheet$Cell_Type)[2:6]){
 
   # denisty plot
   minfi::densityPlot(as.matrix(cellDistBetas), sampGroups = ArrayType, main=cell)
+  
+  
+  # probe wise cor plot
+  
+  cellProbeCorStat <- apply(plotBetas, 1, probeWiseCor)
 
 
   # get mean methylation for the cell type from A risk data
@@ -116,6 +164,15 @@ for(cell in unique(sampleSheet$Cell_Type)[2:6]){
     geom_abline(colour="red", linetype="dashed")
   
   print(p)
+  
+  
+  # plot distribution of probe level statistics
+  
+  # by cell type
+  
+  
+  # all samples
+  
   
 }
 
@@ -152,12 +209,11 @@ for(cell in unique(sampleSheet$Cell_Type)[2:6]){
 }
 
 
-
+pdf("plots/EpicV1vsMSAarrayViolinPlot.pdf")
 p2 <- ggplot(t, aes(x=cell, y=Methylation, colour=array))+
   geom_violin()+
   #xlab("Array")+
-  ylab("Methylation")+
-  ggtitle("Whole Blood")
+  ylab("Methylation")
 
 print(p2)
 
