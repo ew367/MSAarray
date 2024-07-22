@@ -13,13 +13,12 @@ PREQUISITES:
   * 0_metadata
   * 1_raw
   * 2_normalised
-  * 3_analysis
   * logFiles
   
-* A config file in the project folder containing file paths and thresholds etc specific to their project (see exampleData/config.r for an example)
+* A config file in the project folder containing file paths and thresholds etc specific to their project
 
 * A file named sampleSheet.csv in the 0_metadata folder which contains the following columns, and any other associated phenotype data:
-    "Basename","Chip_ID","Chip_Position","Plate","Batch", "Individual_ID","Sample_ID","Cell_Type","N_Nuclei","Group","Age","Sex". (see exampleData/sampleSheet.csv)
+    "Basename","Chip_ID","Chip_Position","Plate", "Individual_ID","Sample_ID","Cell_Type","Study"
     
 * raw idat files in the 1_raw folder
 
@@ -37,8 +36,8 @@ sbatch QCjobSubmission.sh <filepath/to/projectFolder>
 This script will execute:
 * calcQCmetrics.r
 * Rscript -e "rmarkdown::render('QC.rmd', output_file='QC.html')" --args $1
-* cellTypeChecks.r (tba)
-* Rscript -e "rmarkdown::render('cellTypeQC.rmd', output_file='cellTypeQC.html')" (tba)
+* cellTypeChecks.r
+* Rscript -e "rmarkdown::render('cellTypeQC.rmd', output_file='cellTypeQC.html')"
 * normalisation.r (tba)
 
 
