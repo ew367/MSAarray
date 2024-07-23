@@ -39,29 +39,48 @@ man <- fread(manifest, skip=7, fill=TRUE, data.table=F)
 msa450k <- man[!(man$Methyl450_Locus_Match == ""), c("IlmnID", "Name", "Methyl450_Locus_Match")] #
 
 # load MSA data
+sampleSheet <- read.csv(pheno, stringsAsFactors = F)
+sampleSheet <- sampleSheet[sampleSheet$Study == "UCL SZ",]
+
 load(file = file.path(QCDir, "mraw.rdat"))
 MSAbetas <- as.data.frame(getB(mraw))
-sampleSheet <- read.csv(pheno, stringsAsFactors = F)
 
 
-# load SCZ blood data
+#----------------------------------------------------------------------#
+#  Import UCL SCZ (450k) data
+#----------------------------------------------------------------------#
+
 load("/lustre/projects/Research_Project-MRC190311/DNAm/mrcSCZBlood/UCL/2_normalised/normalised.rdata")
 # betas.ucl and pheno.ucl
 
-
-#----------------------------------------------------------------------#
-# UCL SCZ (450k)
-#----------------------------------------------------------------------#
-
 # subset data to samples there is matched data for
 pheno <- pheno.ucl[pheno.ucl$Pool_ID %in% sampleSheet$Individual_ID,]
+pheno <- pheno[order(pheno$Pool_ID),]
 
 betas <- as.data.frame(betas.ucl[,pheno$Basename])
 betas <- betas[msa450k$Methyl450_Locus_Match,]
 
+# match back as there are some missing (see notes)
 sampleSheet <- sampleSheet[sampleSheet$Individual_ID %in% pheno$Pool_ID,]
+sampleSheet <- sampleSheet[order(sampleSheet$Individual_ID),]
 MSAbetas <- MSAbetas[,sampleSheet$Basename]
 
+# check that matched samples are in the same order
+identical(sampleSheet$Individual_ID, pheno$Pool_ID)
+# TRUE
+
+
+#----------------------------------------------------------------------#
+# Join betas from 450k and MSA data into single object
+#----------------------------------------------------------------------#
+
+# join betas from epicv1 and MSA
+plotBetas <- betas
+plotBetas$Methyl450_Locus_Match <- row.names(plotBetas)
+plotBetas <- left_join(plotBetas, msa450k)
+MSAbetas$IlmnID <- row.names(MSAbetas)
+plotBetas <- left_join(plotBetas, MSAbetas)
+plotBetas <- plotBetas[complete.cases(plotBetas),]
 
 # create data frame for colouring distribution plot by array version
 distGroup <- bind_rows(
@@ -73,13 +92,37 @@ distGroup <- bind_rows(
     dplyr::select(Basename) %>%
     mutate(tech = "450k"))
 
-# join betas from epicv1 and MSA
-plotBetas <- betas
-plotBetas$Methyl450_Locus_Match <- row.names(plotBetas)
-plotBetas <- left_join(plotBetas, msa450k)
-MSAbetas$IlmnID <- row.names(MSAbetas)
-plotBetas <- left_join(plotBetas, MSAbetas)
-plotBetas <- plotBetas[complete.cases(plotBetas),]
+
+#----------------------------------------------------------------------#
+# Plot cor stat accross all samples
+#----------------------------------------------------------------------#
+
+# define function to apply to all probes
+probeWiseCor <- function(x){
+  corStat <- cor.test(as.numeric(x[pheno$Basename]), 
+                      as.numeric(x[sampleSheet$Basename]))$estimate
+  return(corStat)
+}
+
+
+# apply to each row (probe) of the matrix
+start.time <- Sys.time()
+corStat <- apply(plotBetas, 1, probeWiseCor)
+end.time <- Sys.time()
+round(end.time - start.time,2) #1.94 mins
+
+
+## plot the distribution
+corStat <- as.data.frame(corStat)
+
+ggplot(corStat, aes(x=corStat))+
+  geom_density()+
+  ggtitle("Probewise R values for 450k vs MSA array probes")
+
+
+#----------------------------------------------------------------------#
+# Plot density, correlations and violin plot
+#----------------------------------------------------------------------#
 
 
 pdf("plots/450KvsMSAarray.pdf")
@@ -130,11 +173,4 @@ p2 <- ggplot(violinDF, aes(x=variable, y=value))+
 
 
 dev.off()
-
-
-
-
-
-
-
 
